@@ -2,10 +2,10 @@ import os
 import discord
 from discord.ext import commands
 from flask import Flask
-import threading
+from threading import Thread
 
 # =============================
-# Flask 保活伺服器（Render 必要）
+# Flask 保活伺服器（Render 使用）
 # =============================
 app = Flask(__name__)
 
@@ -13,11 +13,12 @@ app = Flask(__name__)
 def home():
     return "Bot is running!"
 
-def run_keep_alive():
+def run_web():
     app.run(host="0.0.0.0", port=10000)
 
-# 開一條執行緒執行
-threading.Thread(target=run_keep_alive).start()
+def keep_alive():
+    t = Thread(target=run_web)
+    t.start()
 
 
 # =============================
@@ -31,7 +32,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 # =============================
 # 你的設定
 # =============================
-ANNOUNCE_CHANNEL_ID = 1440378309094543482  # 公告固定頻道
+ANNOUNCE_CHANNEL_ID = 1440378309094543482  # 公告頻道
 PING_ROLE_ID = 1440603989279506432        # 要 @ 的身分組
 
 
@@ -40,7 +41,7 @@ PING_ROLE_ID = 1440603989279506432        # 要 @ 的身分組
 # =============================
 @bot.command()
 async def 公告(ctx):
-    # 刪除使用者的 "!公告"
+    # 刪除使用者傳的 "!公告"
     try:
         await ctx.message.delete()
     except:
@@ -48,11 +49,11 @@ async def 公告(ctx):
 
     ask = await ctx.send("📝 **請輸入公告內容：**")
 
-    def check(m):
+    def check_msg(m):
         return m.author == ctx.author and m.channel == ctx.channel
 
     try:
-        msg = await bot.wait_for("message", check=check, timeout=120)
+        msg = await bot.wait_for("message", check=check_msg, timeout=120)
         content = msg.content
 
         try:
@@ -105,10 +106,12 @@ async def 公告(ctx):
 
 
 # =============================
-# 啟動 BOT（使用環境變數）
+# 啟動 BOT（環境變數）
 # =============================
-token = os.getenv("DISCORD_TOKEN")
-if token is None:
-    raise ValueError("DISCORD_TOKEN environment variable is not set")
+TOKEN = os.getenv("DISCORD_TOKEN")
+if TOKEN is None:
+    raise ValueError("❌ DISCORD_TOKEN environment variable is not set!")
 
-bot.run(token)
+# ---- 啟動 Flask 保活 + 啟動 Bot ----
+keep_alive()
+bot.run(TOKEN)
